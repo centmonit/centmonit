@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+        <script>
+            $(document).ready(function(){
+                $("button").click(function(){
+                    $("#result").html("wait...")
+                    $.get(`http://${location.hostname}:8088/api/test`, function(data, status){
+                        setTimeout(() => {
+                            $("#result").html(data)
+                        }, 500);
+                    });
+                });
+            });
+        </script>
+    </head>
+    <body>
+        <h3>CentMonit Dashboard</h3>
+        <img src="assets/a.jpg" width="125px">
+
+        <div>
+            <button>Check Now</button>
+            <p id="result"></p>
+        </div>
+    </body>
+</html>

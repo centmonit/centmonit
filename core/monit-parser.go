@@ -187,7 +187,7 @@ func _testPrint2(monitInst MonitInst) {
 	}
 }
 
-func TestParse(xmlInput string) {
+func TestParse(xmlInput string) string {
 	var monitInst MonitInst
 
 	// Non UTF-8
@@ -202,4 +202,6 @@ func TestParse(xmlInput string) {
 	// fmt.Println(monitInst)
 	// _testPrint1(monitInst)
 	_testPrint2(monitInst)
+
+	return monitInst.Server.Hostname
 }
