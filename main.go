@@ -3,19 +3,19 @@ package main
 import (
 	"log"
 	"io"
-	// "os"
+	"os"
 	"local.domain/CentMonit/core"
-	"gopkg.in/natefinch/lumberjack.v2"
+	// "gopkg.in/natefinch/lumberjack.v2"
 )
 
 func main() {
-	mw := io.MultiWriter(/*os.Stdout, */&lumberjack.Logger{
+	mw := io.MultiWriter(os.Stdout, /*&lumberjack.Logger{
 		Filename:   "./logs/log.txt",
 		MaxSize:    1, // MB
 		MaxBackups: 5,
 		MaxAge:     1, //days
 		Compress:   false, // disabled by default
-	})
+	}*/)
 	log.SetOutput(mw)
 	log.Println("CentMonit begin...")
 

@@ -2,6 +2,7 @@
 <html>
     <head>
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+
         <script>
             $(document).ready(function(){
                 $("button").click(function(){
@@ -13,6 +14,19 @@
                     });
                 });
             });
+        </script>
+
+        <script>
+            let socket = new WebSocket(`ws://${location.hostname}:8088/socket`);
+            console.log("Attempting Connection...");
+
+            socket.onopen = () => {
+              console.log("Successfully Connected");
+            };
+
+            socket.onmessage = function(event) {
+                alert(`[message] Data received from server: ${event.data}`);
+            };
         </script>
     </head>
     <body>
