@@ -55,3 +55,8 @@ Extend props:
     - cpu
 - Host
     - response_time
+
+# Refs
+- tutorialedge.net/golang/go-websocket-tutorial
+- tutorialedge.net/golang/parsing-xml-with-golang
+- golangexample.com/a-powerful-url-router-and-dispatcher-for-golang
