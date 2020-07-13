@@ -3,12 +3,12 @@ package core
 import (
 	"log"
 	"net/http"
-	"github.com/julienschmidt/httprouter"
+	// "github.com/julienschmidt/httprouter"
 )
 
 func StartWebServer(port string) {
-	r := httprouter.New()
-	r.ServeFiles("/*filepath", http.Dir("./html"))
+	// r := httprouter.New()
+	// r.ServeFiles("/*filepath", http.Dir("./html"))
 
-	log.Fatal(http.ListenAndServe(":" + port, r))
+	log.Fatal(http.ListenAndServe(":" + port, http.FileServer(http.Dir("./html"))))
 }
