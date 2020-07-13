@@ -140,8 +140,9 @@ func _testPrint1(monitInst MonitInst) {
 	fmt.Printf("MEMORY %.2f%% - CPU %.2f%%\n", memory, cpu)
 }
 
-func _testPrint2(monitInst MonitInst) {
+func _testPrint2(monitInst MonitInst, monitHostsMap map[string]MonitHost) {
 	fmt.Printf("\n\nMonit inst [%s] - Host server [%s]\n", monitInst.ID, monitInst.Server.Hostname)
+
 	if monitInst.Event != (Event{}) {
 		fmt.Printf("EVENT: %s - ID: %s - STATE: %d - ACTION: %d - MSG: %s\n",
 			monitInst.Event.Service,
@@ -152,7 +153,7 @@ func _testPrint2(monitInst MonitInst) {
 	} else {
 		var cpu, memory float32
 		var TOTAL_SERVICES = len(monitInst.Services.ServiceArr)
-		var OK_SERVICES = 0
+		var OK_SERVICES, UNMONITORED_SERVICES = 0, 0
 
 		data := make([][]string, TOTAL_SERVICES)
 
@@ -164,9 +165,13 @@ func _testPrint2(monitInst MonitInst) {
 			data[i][1] = descServiceType(tmpService.Type)
 			data[i][2] = descMonitorStatus(tmpService.Monitor)
 			data[i][3] = descServiceStatus(tmpService.Status)
-			if tmpService.Status == 0 {
+
+			if descMonitorStatus(tmpService.Monitor) == "MONITORED" && tmpService.Status == 0 {
 				OK_SERVICES++
+			} else if descMonitorStatus(tmpService.Monitor) == "UNMONITORED" {
+				UNMONITORED_SERVICES++
 			}
+
 			data[i][4] = descTimestamp(int64(tmpService.CollectedSec)).String() // Format("2006-01-02 15:04:05")
 
 			if tmpService.Type == 5 {
@@ -174,8 +179,19 @@ func _testPrint2(monitInst MonitInst) {
 				cpu = tmpService.System.Cpu.User + tmpService.System.Cpu.System
 			}
 		}
-		fmt.Printf("STATUS: %d/%d are OK\n", OK_SERVICES, TOTAL_SERVICES)
+		fmt.Printf("STATUS: %d/%d are OK - %d are skipped\n", OK_SERVICES, TOTAL_SERVICES, UNMONITORED_SERVICES)
 		fmt.Printf("MEMORY %.2f%% - CPU %.2f%%\n", memory, cpu)
+
+		monitHostsMap[monitInst.ID] = MonitHost {
+			ID: monitInst.ID,
+			Hostname: monitInst.Server.Hostname,
+			Uptime: monitInst.Server.Uptime,
+			RAM: memory,
+			CPU: cpu,
+			Services: uint(TOTAL_SERVICES),
+			GoodServices: uint(OK_SERVICES),
+			SkipServices: uint(UNMONITORED_SERVICES),
+		}
 
 		table := tablewriter.NewWriter(os.Stdout)
 		table.SetHeader([]string{"Service", "Type", "Monitor", "Status", "CollectedSec"})
@@ -187,7 +203,7 @@ func _testPrint2(monitInst MonitInst) {
 	}
 }
 
-func TestParse(xmlInput string) string {
+func TestParse(xmlInput string, monitHostsMap map[string]MonitHost) string {
 	var monitInst MonitInst
 
 	// Non UTF-8
@@ -201,7 +217,8 @@ func TestParse(xmlInput string) string {
 
 	// fmt.Println(monitInst)
 	// _testPrint1(monitInst)
-	_testPrint2(monitInst)
+	_testPrint2(monitInst, monitHostsMap)
+
 
 	return monitInst.Server.Hostname
 }

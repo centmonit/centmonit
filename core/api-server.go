@@ -9,10 +9,25 @@ import (
 	// "gopkg.in/natefinch/lumberjack.v2"
 	"github.com/gorilla/websocket"
 	"github.com/gorilla/mux"
+	"encoding/json"
 )
 
 var hostname string
+
 var socket *websocket.Conn
+
+type MonitHost struct {
+	ID string `json:"id"`
+	Hostname string `json:"hostname"`
+	Uptime uint `json:"uptime"`
+	RAM float32 `json:"ram"`
+	CPU float32 `json:"cpu"`
+	Services uint `json:"services"`
+	GoodServices uint `json:"goodServices"`
+	SkipServices uint `json:"skipServices"`
+}
+
+var hostsMap = make(map[string]MonitHost)
 
 func CORS(rw *http.ResponseWriter) {
 	(*rw).Header().Set("Access-Control-Allow-Origin", "*")
@@ -30,7 +45,7 @@ func collectorPostHandler(rw http.ResponseWriter, r *http.Request) {
 	// log.Printf("Request header XXX: %s", r.Header.Get("XXX"))
 	// log.Printf("Request query pwd: %s", r.URL.Query().Get("pwd"))
 
-	hostname = TestParse(string(b[:]))
+	hostname = TestParse(string(b[:]), hostsMap)
 	if socket != nil {
 		socket.WriteMessage(1, []byte(fmt.Sprintf("The host is %s", hostname)))
 	} else {
@@ -44,6 +59,23 @@ func collectorPostHandler(rw http.ResponseWriter, r *http.Request) {
 func getSharedData(rw http.ResponseWriter, r *http.Request) {
 	CORS(&rw)
 	fmt.Fprintf(rw, "Here is the hostname: %s", hostname)
+}
+
+func hostsReportGetHandler(rw http.ResponseWriter, r *http.Request) {
+	CORS(&rw)
+	rw.Header().Add("Content-Type", "application/json")
+
+	var hostArray = make([]MonitHost, len(hostsMap))
+
+	if len(hostsMap) > 0 {
+		var i = 0
+		for _, value := range hostsMap {
+			// fmt.Fprintf(rw, "key %s - value %s", key, value)
+			hostArray[i] = value
+		}
+	}
+
+	json.NewEncoder(rw).Encode(hostArray)
 }
 
 var upgrader = websocket.Upgrader{
@@ -75,13 +107,13 @@ func socketHandler(rw http.ResponseWriter, r *http.Request) {
 func StartApiServer(port string) {
 	r := mux.NewRouter()
 
+	// For monit agent
 	r.HandleFunc("/api/collector", collectorPostHandler).Methods("POST")
 	r.HandleFunc("/api/test", getSharedData).Methods("GET")
-	r.HandleFunc("/api/hosts/report", getSharedData).Methods("GET")
+
+	// For web dashboard
+	r.HandleFunc("/api/hosts/report", hostsReportGetHandler).Methods("GET")
 	r.HandleFunc("/api/hosts/{host_id}/report", getSharedData).Methods("GET")
-
-	// r.ServeFiles("/*filepath", http.Dir("./html"))
-
 	r.HandleFunc("/socket", socketHandler)
 
 	// log.SetOutput(&lumberjack.Logger{
