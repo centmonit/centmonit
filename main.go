@@ -25,7 +25,7 @@ func main() {
 
 	log.Printf("CentMonit start (web port: %s, api port: %s)\n", cfg.Net.WebPort, cfg.Net.ApiPort)
 
-	core.ConfigWebServer(cfg.Net.BindIp, cfg.Net.ApiPort)
+	core.ConfigWebServer(cfg.Net.ApiHost, cfg.Net.ApiPort)
 
 	go core.StartWebServer(cfg.Net.WebPort)
 	go core.StartApiServer(cfg.Net.ApiPort)

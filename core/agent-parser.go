@@ -140,7 +140,7 @@ func _testPrint1(monitInst MonitInst) {
 	fmt.Printf("MEMORY %.2f%% - CPU %.2f%%\n", memory, cpu)
 }
 
-func _testPrint2(monitInst MonitInst, monitHostsMap map[string]MonitHost) {
+func _testPrint2(monitInst MonitInst, monitHostsMap *map[string]MonitHost) {
 	fmt.Printf("\n\nMonit inst [%s] - Host server [%s]\n", monitInst.ID, monitInst.Server.Hostname)
 
 	if monitInst.Event != (Event{}) {
@@ -184,16 +184,20 @@ func _testPrint2(monitInst MonitInst, monitHostsMap map[string]MonitHost) {
 		fmt.Printf("STATUS: %d/%d are OK - %d are skipped\n", OK_SERVICES, TOTAL_SERVICES, UNMONITORED_SERVICES)
 		fmt.Printf("MEMORY %.2f%% - CPU %.2f%%\n", memory, cpu)
 
-		monitHostsMap[monitInst.ID] = MonitHost {
-			ID: monitInst.ID,
-			Hostname: monitInst.Server.Hostname,
-			Uptime: monitInst.Server.Uptime,
-			RAM: memory,
-			CPU: cpu,
-			Services: uint(TOTAL_SERVICES),
-			GoodServices: uint(OK_SERVICES),
-			FailServices: uint(FAIL_SERVICES),
-			SkipServices: uint(UNMONITORED_SERVICES),
+		if len(*monitHostsMap) < MAX_AGENTS {
+			(*monitHostsMap)[monitInst.ID] = MonitHost {
+				ID: monitInst.ID,
+				Hostname: monitInst.Server.Hostname,
+				Uptime: monitInst.Server.Uptime,
+				RAM: memory,
+				CPU: cpu,
+				Services: uint(TOTAL_SERVICES),
+				GoodServices: uint(OK_SERVICES),
+				FailServices: uint(FAIL_SERVICES),
+				SkipServices: uint(UNMONITORED_SERVICES),
+			}
+		} else {
+			log.Printf("WARN - skip agent [%s] because quota over\n", monitInst.Server.Hostname)
 		}
 
 		table := tablewriter.NewWriter(os.Stdout)
@@ -206,7 +210,7 @@ func _testPrint2(monitInst MonitInst, monitHostsMap map[string]MonitHost) {
 	}
 }
 
-func TestParse(xmlInput string, monitHostsMap map[string]MonitHost) string {
+func TestParse(xmlInput string, monitHostsMap *map[string]MonitHost) string {
 	var monitInst MonitInst
 
 	// Non UTF-8

@@ -26,7 +26,8 @@ make_release() {
     CentMonit/html \
     CentMonit/template \
     CentMonit/config.yml \
-    CentMonit/control.sh
+    CentMonit/control.sh \
+    CentMonit/MANUAL.pdf
 }
 
 case "$1" in
