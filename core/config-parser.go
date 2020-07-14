@@ -7,8 +7,8 @@ import (
 
 type Config struct {
 	Net struct {
-		BindIp string `yaml:"bindIp"`
 		WebPort string `yaml:"webPort"`
+		ApiHost string `yaml:"apiHost"`
 		ApiPort string `yaml:"apiPort"`
 	} `yaml:"net"`
 }
