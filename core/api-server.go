@@ -24,6 +24,7 @@ type MonitHost struct {
 	CPU float32 `json:"cpu"`
 	Services uint `json:"services"`
 	GoodServices uint `json:"goodServices"`
+	FailServices uint `json:"failServices"`
 	SkipServices uint `json:"skipServices"`
 }
 
@@ -72,6 +73,7 @@ func hostsReportGetHandler(rw http.ResponseWriter, r *http.Request) {
 		for _, value := range hostsMap {
 			// fmt.Fprintf(rw, "key %s - value %s", key, value)
 			hostArray[i] = value
+			i++
 		}
 	}
 

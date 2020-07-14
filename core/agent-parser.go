@@ -153,7 +153,7 @@ func _testPrint2(monitInst MonitInst, monitHostsMap map[string]MonitHost) {
 	} else {
 		var cpu, memory float32
 		var TOTAL_SERVICES = len(monitInst.Services.ServiceArr)
-		var OK_SERVICES, UNMONITORED_SERVICES = 0, 0
+		var OK_SERVICES, UNMONITORED_SERVICES, FAIL_SERVICES = 0, 0, 0
 
 		data := make([][]string, TOTAL_SERVICES)
 
@@ -168,6 +168,8 @@ func _testPrint2(monitInst MonitInst, monitHostsMap map[string]MonitHost) {
 
 			if descMonitorStatus(tmpService.Monitor) == "MONITORED" && tmpService.Status == 0 {
 				OK_SERVICES++
+			} else if descMonitorStatus(tmpService.Monitor) == "MONITORED" && tmpService.Status != 0 {
+				FAIL_SERVICES++
 			} else if descMonitorStatus(tmpService.Monitor) == "UNMONITORED" {
 				UNMONITORED_SERVICES++
 			}
@@ -190,6 +192,7 @@ func _testPrint2(monitInst MonitInst, monitHostsMap map[string]MonitHost) {
 			CPU: cpu,
 			Services: uint(TOTAL_SERVICES),
 			GoodServices: uint(OK_SERVICES),
+			FailServices: uint(FAIL_SERVICES),
 			SkipServices: uint(UNMONITORED_SERVICES),
 		}
 
