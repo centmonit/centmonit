@@ -12,7 +12,7 @@ import (
 	"encoding/json"
 )
 
-const MAX_AGENTS = 0
+const MAX_AGENTS = 5
 
 var hostname string
 
