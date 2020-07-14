@@ -48,7 +48,7 @@ func collectorPostHandler(rw http.ResponseWriter, r *http.Request) {
 	// log.Printf("Request header XXX: %s", r.Header.Get("XXX"))
 	// log.Printf("Request query pwd: %s", r.URL.Query().Get("pwd"))
 
-	hostname = TestParse(string(b[:]), hostsMap)
+	hostname = TestParse(string(b[:]), &hostsMap)
 	if socket != nil {
 		socket.WriteMessage(1, []byte(fmt.Sprintf("The host is %s", hostname)))
 	} else {
