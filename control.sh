@@ -13,6 +13,11 @@ stop() {
   kill -9 `ps -e -o pid,command | grep 'cent' | grep 'monit' | awk '{print $1}'`
 }
 
+status() {
+  printf "${RED}Checking CentMonit...${NC}\n"
+  ps -e -o pid,command | grep 'cent' | grep 'monit'
+}
+
 case "$1" in
   start)
     start
@@ -20,9 +25,12 @@ case "$1" in
   stop)
     stop
     ;;
+  status)
+    status
+    ;;
   *)
     echo "--------------------------------------------------------"
-    echo "Usage: ./control.sh <start> | <stop>"
+    echo "Usage: ./control.sh <start> | <stop> | <status>"
     echo "--------------------------------------------------------"
     exit 1
     ;;
