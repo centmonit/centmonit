@@ -60,3 +60,4 @@ Extend props:
 - tutorialedge.net/golang/go-websocket-tutorial
 - tutorialedge.net/golang/parsing-xml-with-golang
 - golangexample.com/a-powerful-url-router-and-dispatcher-for-golang
+- dev.to/koddr/let-s-write-config-for-your-golang-web-app-on-right-way-yaml-5ggp
