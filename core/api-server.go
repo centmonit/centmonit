@@ -12,6 +12,8 @@ import (
 	"encoding/json"
 )
 
+const MAX_AGENTS = 0
+
 var hostname string
 
 var socket *websocket.Conn
