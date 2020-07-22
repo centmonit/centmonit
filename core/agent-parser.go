@@ -6,7 +6,7 @@ import (
 	"golang.org/x/net/html/charset"
 	"bytes"
 	"time"
-	"os"
+	// "os"
 	"log"
 	"github.com/olekukonko/tablewriter"
 )
@@ -64,6 +64,7 @@ type Memory struct {
 type Event struct {
 	XMLName xml.Name `xml:"event"`
 	Service string `xml:"service"`
+	Type uint `xml:"type"`
 	ID string `xml:"id"`
 	State uint `xml:"state"`
 	Action uint `xml:"action"`
@@ -83,7 +84,7 @@ func descServiceType (serviceType uint) string {
 	case 5:
 		return "System"
 	default:
-		return "__UNK__"
+		return "Unknown"
 	}
 }
 
@@ -140,77 +141,140 @@ func _testPrint1(monitInst MonitInst) {
 	fmt.Printf("MEMORY %.2f%% - CPU %.2f%%\n", memory, cpu)
 }
 
-func _testPrint2(monitInst MonitInst, monitHostsMap *map[string]MonitHost) {
-	fmt.Printf("\n\nMonit inst [%s] - Host server [%s]\n", monitInst.ID, monitInst.Server.Hostname)
+func processReportEvent(monitInst MonitInst, monitHostsMap *map[string]MonitHost) {
+	log.Printf("New event - Service: %s - ID: %s - STATE: %d - ACTION: %d - MSG: %s\n",
+		monitInst.Event.Service,
+		monitInst.Event.ID,
+		monitInst.Event.State,
+		monitInst.Event.Action,
+		monitInst.Event.Message)
 
-	if monitInst.Event != (Event{}) {
-		fmt.Printf("EVENT: %s - ID: %s - STATE: %d - ACTION: %d - MSG: %s\n",
-			monitInst.Event.Service,
-			monitInst.Event.ID,
-			monitInst.Event.State,
-			monitInst.Event.Action,
-			monitInst.Event.Message)
-	} else {
-		var cpu, memory float32
-		var TOTAL_SERVICES = len(monitInst.Services.ServiceArr)
-		var OK_SERVICES, UNMONITORED_SERVICES, FAIL_SERVICES = 0, 0, 0
+	eventType := "error"
+	if monitInst.Event.ID == "65536" {
+		if monitInst.Event.Action == 6 {
+			// monit started event
+			eventType = "success"
+		} else /* action=3 */ {
+			// monit stopped event
+			eventType = "error"
 
-		data := make([][]string, TOTAL_SERVICES)
-
-		for i := 0; i < TOTAL_SERVICES; i++ {
-			tmpService := monitInst.Services.ServiceArr[i]
-
-			data[i] = make([]string, 5)
-			data[i][0] = tmpService.Name
-			data[i][1] = descServiceType(tmpService.Type)
-			data[i][2] = descMonitorStatus(tmpService.Monitor)
-			data[i][3] = descServiceStatus(tmpService.Status)
-
-			if descMonitorStatus(tmpService.Monitor) == "MONITORED" && tmpService.Status == 0 {
-				OK_SERVICES++
-			} else if descMonitorStatus(tmpService.Monitor) == "MONITORED" && tmpService.Status != 0 {
-				FAIL_SERVICES++
-			} else if descMonitorStatus(tmpService.Monitor) == "UNMONITORED" {
-				UNMONITORED_SERVICES++
-			}
-
-			data[i][4] = descTimestamp(int64(tmpService.CollectedSec)).String() // Format("2006-01-02 15:04:05")
-
-			if tmpService.Type == 5 {
-				memory = tmpService.System.Memory.Percent
-				cpu = tmpService.System.Cpu.User + tmpService.System.Cpu.System
-			}
-		}
-		fmt.Printf("STATUS: %d/%d are OK - %d are skipped\n", OK_SERVICES, TOTAL_SERVICES, UNMONITORED_SERVICES)
-		fmt.Printf("MEMORY %.2f%% - CPU %.2f%%\n", memory, cpu)
-
-		if len(*monitHostsMap) < MAX_AGENTS {
-			(*monitHostsMap)[monitInst.ID] = MonitHost {
+			// clear host report
+			(*monitHostsMap)[monitInst.ID] = MonitHost{
 				ID: monitInst.ID,
 				Hostname: monitInst.Server.Hostname,
-				Uptime: monitInst.Server.Uptime,
-				RAM: memory,
-				CPU: cpu,
-				Services: uint(TOTAL_SERVICES),
-				GoodServices: uint(OK_SERVICES),
-				FailServices: uint(FAIL_SERVICES),
-				SkipServices: uint(UNMONITORED_SERVICES),
+				AlertMessage: monitInst.Event.Message,
 			}
-		} else {
-			log.Printf("WARN - skip agent [%s] because quota over\n", monitInst.Server.Hostname)
+			// log.Println("Item after clear host: ", (*monitHostsMap)[monitInst.ID])
+			// log.Printf("Map after clear host: %+v", (*monitHostsMap))
+			// log.Println("Param pointer address: ", monitHostsMap)
 		}
+	} else if monitInst.Event.ID == "131072" {
+		// Monitor/Unmonitor event
+		eventType = "warning"
+	} else if monitInst.Event.State == 0 {
+		eventType = "success"
+	}
 
-		table := tablewriter.NewWriter(os.Stdout)
-		table.SetHeader([]string{"Service", "Type", "Monitor", "Status", "CollectedSec"})
-
-		for _, v := range data {
-			table.Append(v)
+	if len(socketConnections) > 0 {
+		socketMsg := SocketEventMessage{
+			Type: eventType,
+			Host: monitInst.Server.Hostname,
+			Message: monitInst.Event.Message,
+			Service: monitInst.Event.Service,
+			ServiceTypeDesc: descServiceType(monitInst.Event.Type),
 		}
-		table.Render()
+		for _, socket := range socketConnections {
+			socket.WriteMessage(1, []byte(fmt.Sprintf(socketMsg.StringValue())))
+		}
+	} else {
+		log.Println("Socket arrays was empty, skip push event message to clients")
 	}
 }
 
-func TestParse(xmlInput string, monitHostsMap *map[string]MonitHost) string {
+func processReportStats(monitInst MonitInst, monitHostsMap *map[string]MonitHost) {
+	var cpu, memory float32
+	var TOTAL_SERVICES = len(monitInst.Services.ServiceArr)
+	var OK_SERVICES, UNMONITORED_SERVICES, FAIL_SERVICES = 0, 0, 0
+
+	data := make([][]string, TOTAL_SERVICES)
+
+	for i := 0; i < TOTAL_SERVICES; i++ {
+		tmpService := monitInst.Services.ServiceArr[i]
+
+		data[i] = make([]string, 5)
+		data[i][0] = tmpService.Name
+		data[i][1] = descServiceType(tmpService.Type)
+		data[i][2] = descMonitorStatus(tmpService.Monitor)
+		data[i][3] = descServiceStatus(tmpService.Status)
+
+		if descMonitorStatus(tmpService.Monitor) == "MONITORED" && tmpService.Status == 0 {
+			OK_SERVICES++
+		} else if descMonitorStatus(tmpService.Monitor) == "MONITORED" && tmpService.Status != 0 {
+			FAIL_SERVICES++
+		} else if descMonitorStatus(tmpService.Monitor) == "UNMONITORED" {
+			UNMONITORED_SERVICES++
+		}
+
+		data[i][4] = descTimestamp(int64(tmpService.CollectedSec)).String() // Format("2006-01-02 15:04:05")
+
+		if tmpService.Type == 5 {
+			memory = tmpService.System.Memory.Percent
+			cpu = tmpService.System.Cpu.User + tmpService.System.Cpu.System
+		}
+	}
+	log.Printf("STATUS: %d/%d are OK - %d are skipped\n", OK_SERVICES, TOTAL_SERVICES, UNMONITORED_SERVICES)
+	log.Printf("MEMORY %.2f%% - CPU %.2f%%\n", memory, cpu)
+
+	if len(*monitHostsMap) < MAX_AGENTS {
+		host := MonitHost {
+			ID: monitInst.ID,
+			Poll: monitInst.Server.Poll,
+			Hostname: monitInst.Server.Hostname,
+			Uptime: monitInst.Server.Uptime,
+			RAM: memory,
+			CPU: cpu,
+			Services: uint(TOTAL_SERVICES),
+			GoodServices: uint(OK_SERVICES),
+			FailServices: uint(FAIL_SERVICES),
+			SkipServices: uint(UNMONITORED_SERVICES),
+		}
+
+		(*monitHostsMap)[monitInst.ID] = host
+
+		if len(socketConnections) > 0 {
+			socketMsg := SocketHostMessage{host}
+			for _, socket := range socketConnections {
+				socket.WriteMessage(1, []byte(fmt.Sprintf(socketMsg.StringValue())))
+			}
+		} else {
+			log.Println("Socket was nil, skip push host message to client")
+		}
+	} else {
+		log.Printf("WARN - skip agent [%s] because quota over\n", monitInst.Server.Hostname)
+	}
+
+	// table := tablewriter.NewWriter(os.Stdout)
+	table := tablewriter.NewWriter(log.Writer())
+	table.SetHeader([]string{"Service", "Type", "Monitor", "Status", "CollectedSec"})
+
+	for _, v := range data {
+		table.Append(v)
+	}
+	table.Render()
+}
+
+func processReportResult(monitInst MonitInst, monitHostsMap *map[string]MonitHost) {
+	log.Printf("\n\nMonit inst [%s] - Host server [%s]\n", monitInst.ID, monitInst.Server.Hostname)
+
+	processReportStats(monitInst, monitHostsMap)
+
+	if monitInst.Event != (Event{}) {
+		// process event must come after
+		processReportEvent(monitInst, monitHostsMap)
+	}
+}
+
+func ParseAgentReport(xmlInput string, monitHostsMap *map[string]MonitHost) {
 	var monitInst MonitInst
 
 	// Non UTF-8
@@ -224,8 +288,5 @@ func TestParse(xmlInput string, monitHostsMap *map[string]MonitHost) string {
 
 	// fmt.Println(monitInst)
 	// _testPrint1(monitInst)
-	_testPrint2(monitInst, monitHostsMap)
-
-
-	return monitInst.Server.Hostname
+	processReportResult(monitInst, monitHostsMap)
 }

@@ -2,3 +2,7 @@ net:
   webPort: 8080
   apiHost: 127.0.0.1
   apiPort: 8088
+
+auth:
+  # https://www.web2generators.com/apache-tools/htpasswd-generator
+  - john:$apr1$zdjw3n47$zra4fQBwxLk.BN3TYNoON0

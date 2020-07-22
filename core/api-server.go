@@ -1,7 +1,6 @@
 package core
 
 import (
-	"fmt"
 	"log"
 	"io/ioutil"
 	"net/http"
@@ -12,14 +11,12 @@ import (
 	"encoding/json"
 )
 
-const MAX_AGENTS = 5
-
-var hostname string
-
-var socket *websocket.Conn
+const MAX_AGENTS = 3
+var socketConnections = make([]*websocket.Conn, 0)
 
 type MonitHost struct {
 	ID string `json:"id"`
+	Poll uint `json:"poll"`
 	Hostname string `json:"hostname"`
 	Uptime uint `json:"uptime"`
 	RAM float32 `json:"ram"`
@@ -28,6 +25,7 @@ type MonitHost struct {
 	GoodServices uint `json:"goodServices"`
 	FailServices uint `json:"failServices"`
 	SkipServices uint `json:"skipServices"`
+	AlertMessage string `json:"alertMessage"`
 }
 
 var hostsMap = make(map[string]MonitHost)
@@ -48,20 +46,11 @@ func collectorPostHandler(rw http.ResponseWriter, r *http.Request) {
 	// log.Printf("Request header XXX: %s", r.Header.Get("XXX"))
 	// log.Printf("Request query pwd: %s", r.URL.Query().Get("pwd"))
 
-	hostname = TestParse(string(b[:]), &hostsMap)
-	if socket != nil {
-		socket.WriteMessage(1, []byte(fmt.Sprintf("The host is %s", hostname)))
-	} else {
-		log.Println("socket was nil")
-	}
+	// log.Println("Map pointer address: ", &hostsMap)
+	ParseAgentReport(string(b[:]), &hostsMap)
 
 	// fmt.Fprint(rw, "OK")
 	rw.WriteHeader(http.StatusOK)
-}
-
-func getSharedData(rw http.ResponseWriter, r *http.Request) {
-	CORS(&rw)
-	fmt.Fprintf(rw, "Here is the hostname: %s", hostname)
 }
 
 func hostsReportGetHandler(rw http.ResponseWriter, r *http.Request) {
@@ -74,6 +63,7 @@ func hostsReportGetHandler(rw http.ResponseWriter, r *http.Request) {
 		var i = 0
 		for _, value := range hostsMap {
 			// fmt.Fprintf(rw, "key %s - value %s", key, value)
+			// log.Printf("\t- API iterate value %+v\n", value)
 			hostArray[i] = value
 			i++
 		}
@@ -92,20 +82,26 @@ func socketHandler(rw http.ResponseWriter, r *http.Request) {
 
 	// upgrade this connection to a WebSocket connection
 	var err error
-    socket, err = upgrader.Upgrade(rw, r, nil)
-    if err != nil {
-        log.Println(err)
+	var socket *websocket.Conn
+	socket, err = upgrader.Upgrade(rw, r, nil)
+	if err != nil {
+		log.Println(err)
+	} else {
+		socketConnections = append(socketConnections, socket)
 	}
 
 	// helpful log statement to show connections
 	log.Println("[Socket] Client Connected")
 
-	err = socket.WriteMessage(1, []byte("Hi Client!!!"))
-    if err != nil {
-        log.Println(err)
+	sockerMsg := SocketEventMessage{
+		Type: "info",
+		Host: "CentMonit",
+		Message: "Success connect to Realtime channel.",
 	}
-
-	socket.WriteMessage(1, []byte(fmt.Sprintf("The host is: %s", hostname)))
+	err = socket.WriteMessage(1, []byte(sockerMsg.StringValue()))
+	if err != nil {
+		log.Println("Socket write back error: ", err)
+	}
 }
 
 func StartApiServer(port string) {
@@ -113,11 +109,10 @@ func StartApiServer(port string) {
 
 	// For monit agent
 	r.HandleFunc("/api/collector", collectorPostHandler).Methods("POST")
-	r.HandleFunc("/api/test", getSharedData).Methods("GET")
 
 	// For web dashboard
 	r.HandleFunc("/api/hosts/report", hostsReportGetHandler).Methods("GET")
-	r.HandleFunc("/api/hosts/{host_id}/report", getSharedData).Methods("GET")
+	// r.HandleFunc("/api/hosts/{host_id}/report", getSharedData).Methods("GET")
 	r.HandleFunc("/socket", socketHandler)
 
 	// log.SetOutput(&lumberjack.Logger{
