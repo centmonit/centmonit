@@ -19,13 +19,14 @@ func main() {
 	log.SetOutput(mw)
 
 	cfg, err := core.GetConfig("./config.yml")
-    if err != nil {
-        log.Fatal(err)
-    }
+	if err != nil {
+			log.Fatal(err)
+	}
+
+	// Stop if exceed 5 day trial
 
 	log.Printf("CentMonit start (web port: %s, api port: %s)\n", cfg.Net.WebPort, cfg.Net.ApiPort)
-
-	core.ConfigWebServer(cfg.Net.ApiHost, cfg.Net.ApiPort)
+	core.ConfigWebServer(cfg.Net.ApiHost, cfg.Net.ApiPort, cfg.Auth)
 
 	go core.StartWebServer(cfg.Net.WebPort)
 	go core.StartApiServer(cfg.Net.ApiPort)

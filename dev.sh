@@ -11,17 +11,18 @@ build() {
 docker_deployment() {
   printf "${RED}Deploy to docker test...${NC}\n"
   CONTAINER=test_monit
+  docker cp bin $CONTAINER:/home/CentMonit/
+  docker cp html $CONTAINER:/home/CentMonit/
   docker cp template $CONTAINER:/home/CentMonit/
   docker cp config.yml $CONTAINER:/home/CentMonit/
   docker cp control.sh $CONTAINER:/home/CentMonit/
-  docker cp bin $CONTAINER:/home/CentMonit/
-  docker cp html $CONTAINER:/home/CentMonit/
 }
 
 make_release() {
   printf "${RED}Make release...${NC}\n"
+  VERSION=$(cat ./VERSION)
   mkdir -p releases
-  tar cvfj releases/CentMonit-2020.0-beta1.tar.bz2 -C $PWD/../ \
+  tar cvfj releases/CentMonit-$VERSION.tar.bz2 -C $PWD/../ \
     CentMonit/bin \
     CentMonit/html \
     CentMonit/template \

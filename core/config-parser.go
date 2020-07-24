@@ -11,6 +11,8 @@ type Config struct {
 		ApiHost string `yaml:"apiHost"`
 		ApiPort string `yaml:"apiPort"`
 	} `yaml:"net"`
+
+	Auth []string `yaml:"auth"`
 }
 
 func GetConfig(configPath string) (*Config, error) {
