@@ -198,8 +198,17 @@ func processReportStats(monitInst MonitInst, monitHostsMap *map[string]MonitHost
 
 	data := make([][]string, TOTAL_SERVICES)
 
+	var xxx = make([]MonitHostService, TOTAL_SERVICES)
+
 	for i := 0; i < TOTAL_SERVICES; i++ {
 		tmpService := monitInst.Services.ServiceArr[i]
+
+		xxx[i] = MonitHostService{
+			tmpService.Name,
+			descServiceType(tmpService.Type),
+			tmpService.Monitor,
+			tmpService.Status,
+		}
 
 		data[i] = make([]string, 5)
 		data[i][0] = tmpService.Name
@@ -240,6 +249,8 @@ func processReportStats(monitInst MonitInst, monitHostsMap *map[string]MonitHost
 		}
 
 		(*monitHostsMap)[monitInst.ID] = host
+
+		hostsServicesMap[monitInst.ID] = MonitHostServices{xxx}
 
 		if len(socketConnections) > 0 {
 			socketMsg := SocketHostMessage{host}

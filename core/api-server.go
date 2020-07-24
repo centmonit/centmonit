@@ -1,6 +1,7 @@
 package core
 
 import (
+	// "fmt"
 	"log"
 	"io/ioutil"
 	"net/http"
@@ -29,6 +30,20 @@ type MonitHost struct {
 }
 
 var hostsMap = make(map[string]MonitHost)
+
+type MonitHostService struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
+	Monitor uint `json:"monitor"`
+	Status uint `json:"status"`
+}
+
+type MonitHostServices struct {
+	Data []MonitHostService
+}
+
+var hostsServicesMap = make(map[string]MonitHostServices)
+
 
 func CORS(rw *http.ResponseWriter) {
 	(*rw).Header().Set("Access-Control-Allow-Origin", "*")
@@ -72,6 +87,24 @@ func hostsReportGetHandler(rw http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(rw).Encode(hostArray)
 }
 
+func hostReportGetHandler(rw http.ResponseWriter, r *http.Request) {
+	CORS(&rw)
+	vars := mux.Vars(r)
+	hostID := vars["host_id"]
+	// fmt.Fprintln(rw, "host report here:", hostID)
+
+	var array1 = hostsServicesMap[hostID].Data
+	var array2 = make([]MonitHostService, len(array1))
+
+	var i = 0
+	for _, value := range array1 {
+		array2[i] = value
+		i++
+	}
+
+	json.NewEncoder(rw).Encode(array2)
+}
+
 var upgrader = websocket.Upgrader{
     ReadBufferSize:  1024,
     WriteBufferSize: 1024,
@@ -112,7 +145,7 @@ func StartApiServer(port string) {
 
 	// For web dashboard
 	r.HandleFunc("/api/hosts/report", hostsReportGetHandler).Methods("GET")
-	// r.HandleFunc("/api/hosts/{host_id}/report", getSharedData).Methods("GET")
+	r.HandleFunc("/api/hosts/{host_id}/report", hostReportGetHandler).Methods("GET")
 	r.HandleFunc("/socket", socketHandler)
 
 	// log.SetOutput(&lumberjack.Logger{
