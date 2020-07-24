@@ -24,8 +24,9 @@ docker_deployment() {
 
 make_release() {
   printf "${RED}Make release...${NC}\n"
+  VERSION=$(cat ./VERSION)
   mkdir -p releases
-  tar cvfj releases/CentMonit-2020.0-beta1.tar.bz2 -C $PWD/../ \
+  tar cvfj releases/CentMonit-$VERSION.tar.bz2 -C $PWD/../ \
     CentMonit/bin \
     CentMonit/html \
     CentMonit/template \
