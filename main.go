@@ -9,23 +9,26 @@ import (
 )
 
 func main() {
+	cfg, err := core.GetConfig("./config.yml")
+	if err != nil {
+			log.Fatal("ERROR\t", err)
+	}
+
 	mw := io.MultiWriter(os.Stdout, &lumberjack.Logger{
 		Filename:   "./logs/log.txt",
-		MaxSize:    1, // MB
-		MaxBackups: 5,
-		MaxAge:     1, //days
+		MaxSize:    cfg.Log.MaxFiles, // MB
+		MaxBackups: cfg.Log.MaxFileSize,
+		MaxAge:     cfg.Log.RetentionDays, //days
 		Compress:   false, // disabled by default
 	})
 	log.SetOutput(mw)
 
-	cfg, err := core.GetConfig("./config.yml")
-	if err != nil {
-			log.Fatal(err)
-	}
-
 	// Stop if exceed 5 day trial
 
-	log.Printf("CentMonit start (web port: %s, api port: %s)\n", cfg.Net.WebPort, cfg.Net.ApiPort)
+	log.Printf("INFO\tCentMonit starting...\n")
+	log.Printf("INFO\tListenning at %s - web port %s - api port %s", cfg.Net.ApiHost, cfg.Net.WebPort, cfg.Net.ApiPort)
+
+
 	core.ConfigWebServer(cfg.Net.ApiHost, cfg.Net.ApiPort, cfg.Auth)
 
 	go core.StartWebServer(cfg.Net.WebPort)

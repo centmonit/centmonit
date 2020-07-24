@@ -13,6 +13,12 @@ type Config struct {
 	} `yaml:"net"`
 
 	Auth []string `yaml:"auth"`
+
+	Log struct {
+		MaxFiles int `yaml:"maxFiles"`
+  	MaxFileSize int `yaml:"maxFileSize"`
+  	RetentionDays int `yaml:"retentionDays"`
+	} `yaml:"log"`
 }
 
 func GetConfig(configPath string) (*Config, error) {
