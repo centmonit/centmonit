@@ -16,8 +16,6 @@ var webAccounts = make(map[string]string)
 
 // find ./html -maxdepth 3 -type f | xargs sed -i 's/AAA/BBB/g'
 func ConfigWebServer(apiHost string, apiPort string, authArray []string) {
-	log.Printf("ConfigWebServer with host %s - port %s", apiHost, apiPort)
-
 	cmd0 := "cp ./template/config.json ./html/config.json"
 	_, _ = exec.Command("bash", "-c", cmd0).Output()
 
@@ -31,7 +29,7 @@ func ConfigWebServer(apiHost string, apiPort string, authArray []string) {
 		tmp := strings.Split(user, ":")
 		webAccounts[tmp[0]] = tmp[1]
 	}
-	fmt.Println("Web accounts:", webAccounts)
+	log.Printf("INFO\tLoaded web dashboard accounts: %d", len(webAccounts))
 }
 
 func __StartWebServer(port string) {

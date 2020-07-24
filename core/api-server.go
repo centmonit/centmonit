@@ -12,7 +12,7 @@ import (
 	"encoding/json"
 )
 
-const MAX_AGENTS = 3
+const MAX_AGENTS = 2
 var socketConnections = make([]*websocket.Conn, 0)
 
 type MonitHost struct {
@@ -57,7 +57,7 @@ func collectorPostHandler(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	// log.Printf("Type: %T", b)
-	log.Printf("Request body: %s", b)
+	log.Printf("INFO\tAgent request body: %s", b)
 	// log.Printf("Request header XXX: %s", r.Header.Get("XXX"))
 	// log.Printf("Request query pwd: %s", r.URL.Query().Get("pwd"))
 
@@ -124,7 +124,7 @@ func socketHandler(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	// helpful log statement to show connections
-	log.Println("[Socket] Client Connected")
+	log.Println("INFO\tNew socket connected")
 
 	sockerMsg := SocketEventMessage{
 		Type: "info",
@@ -133,7 +133,7 @@ func socketHandler(rw http.ResponseWriter, r *http.Request) {
 	}
 	err = socket.WriteMessage(1, []byte(sockerMsg.StringValue()))
 	if err != nil {
-		log.Println("Socket write back error: ", err)
+		log.Println("ERROR\tSocket write back error: ", err)
 	}
 }
 
