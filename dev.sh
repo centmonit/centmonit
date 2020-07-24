@@ -5,7 +5,11 @@ NC='\033[0m' # No Color
 
 build() {
   printf "${RED}Building binary...${NC}\n"
-  CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/centmonit
+  CGO_ENABLED=0 GOOS=linux go build -o bin/centmonit-linux
+  CGO_ENABLED=0 GOOS=solaris go build -o bin/centmonit-solaris
+  CGO_ENABLED=0 GOOS=openbsd go build -o bin/centmonit-openbsd
+  CGO_ENABLED=0 GOOS=netbsd go build -o bin/centmonit-netbsd
+  CGO_ENABLED=0 GOOS=freebsd go build -o bin/centmonit-freebsd
 }
 
 docker_deployment() {
