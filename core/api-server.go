@@ -1,6 +1,7 @@
 package core
 
 import (
+	// "fmt"
 	"log"
 	"io/ioutil"
 	"net/http"
@@ -11,7 +12,7 @@ import (
 	"encoding/json"
 )
 
-const MAX_AGENTS = 3
+const MAX_AGENTS = 2
 var socketConnections = make([]*websocket.Conn, 0)
 
 type MonitHost struct {
@@ -30,6 +31,20 @@ type MonitHost struct {
 
 var hostsMap = make(map[string]MonitHost)
 
+type MonitHostService struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
+	Monitor uint `json:"monitor"`
+	Status uint `json:"status"`
+}
+
+type MonitHostServices struct {
+	Data []MonitHostService
+}
+
+var hostsServicesMap = make(map[string]MonitHostServices)
+
+
 func CORS(rw *http.ResponseWriter) {
 	(*rw).Header().Set("Access-Control-Allow-Origin", "*")
 }
@@ -42,7 +57,7 @@ func collectorPostHandler(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	// log.Printf("Type: %T", b)
-	log.Printf("Request body: %s", b)
+	log.Printf("INFO\tAgent request body: %s", b)
 	// log.Printf("Request header XXX: %s", r.Header.Get("XXX"))
 	// log.Printf("Request query pwd: %s", r.URL.Query().Get("pwd"))
 
@@ -72,6 +87,24 @@ func hostsReportGetHandler(rw http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(rw).Encode(hostArray)
 }
 
+func hostReportGetHandler(rw http.ResponseWriter, r *http.Request) {
+	CORS(&rw)
+	vars := mux.Vars(r)
+	hostID := vars["host_id"]
+	// fmt.Fprintln(rw, "host report here:", hostID)
+
+	var array1 = hostsServicesMap[hostID].Data
+	var array2 = make([]MonitHostService, len(array1))
+
+	var i = 0
+	for _, value := range array1 {
+		array2[i] = value
+		i++
+	}
+
+	json.NewEncoder(rw).Encode(array2)
+}
+
 var upgrader = websocket.Upgrader{
     ReadBufferSize:  1024,
     WriteBufferSize: 1024,
@@ -91,7 +124,7 @@ func socketHandler(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	// helpful log statement to show connections
-	log.Println("[Socket] Client Connected")
+	log.Println("INFO\tNew socket connected")
 
 	sockerMsg := SocketEventMessage{
 		Type: "info",
@@ -100,7 +133,7 @@ func socketHandler(rw http.ResponseWriter, r *http.Request) {
 	}
 	err = socket.WriteMessage(1, []byte(sockerMsg.StringValue()))
 	if err != nil {
-		log.Println("Socket write back error: ", err)
+		log.Println("ERROR\tSocket write back error: ", err)
 	}
 }
 
@@ -112,7 +145,7 @@ func StartApiServer(port string) {
 
 	// For web dashboard
 	r.HandleFunc("/api/hosts/report", hostsReportGetHandler).Methods("GET")
-	// r.HandleFunc("/api/hosts/{host_id}/report", getSharedData).Methods("GET")
+	r.HandleFunc("/api/hosts/{host_id}/report", hostReportGetHandler).Methods("GET")
 	r.HandleFunc("/socket", socketHandler)
 
 	// log.SetOutput(&lumberjack.Logger{

@@ -97,7 +97,7 @@ func descMonitorStatus (status uint) string {
 	case 2:
 		return "INIT"
 	default:
-		log.Printf("WARN - monitor status [%d] is unknown\n", status)
+		log.Printf("WARN\tMonitor status [%d] is unknown\n", status)
 		return "__UNK__"
 	}
 }
@@ -111,7 +111,7 @@ func descServiceStatus (status uint) string {
 	case 1073741824:
 		return "Does exist"
 	default:
-		log.Printf("WARN - service status [%d] is unknown\n", status)
+		log.Printf("WARN\tService status [%d] is unknown\n", status)
 		return "NOT OK"
 	}
 }
@@ -142,7 +142,7 @@ func _testPrint1(monitInst MonitInst) {
 }
 
 func processReportEvent(monitInst MonitInst, monitHostsMap *map[string]MonitHost) {
-	log.Printf("New event - Service: %s - ID: %s - STATE: %d - ACTION: %d - MSG: %s\n",
+	log.Printf("INFO\tNew event - Service: %s - ID: %s - STATE: %d - ACTION: %d - MSG: %s\n",
 		monitInst.Event.Service,
 		monitInst.Event.ID,
 		monitInst.Event.State,
@@ -187,7 +187,7 @@ func processReportEvent(monitInst MonitInst, monitHostsMap *map[string]MonitHost
 			socket.WriteMessage(1, []byte(fmt.Sprintf(socketMsg.StringValue())))
 		}
 	} else {
-		log.Println("Socket arrays was empty, skip push event message to clients")
+		log.Println("INFO\tSocket arrays was empty, skip push event message to clients")
 	}
 }
 
@@ -198,8 +198,17 @@ func processReportStats(monitInst MonitInst, monitHostsMap *map[string]MonitHost
 
 	data := make([][]string, TOTAL_SERVICES)
 
+	var xxx = make([]MonitHostService, TOTAL_SERVICES)
+
 	for i := 0; i < TOTAL_SERVICES; i++ {
 		tmpService := monitInst.Services.ServiceArr[i]
+
+		xxx[i] = MonitHostService{
+			tmpService.Name,
+			descServiceType(tmpService.Type),
+			tmpService.Monitor,
+			tmpService.Status,
+		}
 
 		data[i] = make([]string, 5)
 		data[i][0] = tmpService.Name
@@ -222,10 +231,10 @@ func processReportStats(monitInst MonitInst, monitHostsMap *map[string]MonitHost
 			cpu = tmpService.System.Cpu.User + tmpService.System.Cpu.System
 		}
 	}
-	log.Printf("STATUS: %d/%d are OK - %d are skipped\n", OK_SERVICES, TOTAL_SERVICES, UNMONITORED_SERVICES)
-	log.Printf("MEMORY %.2f%% - CPU %.2f%%\n", memory, cpu)
+	log.Printf("INFO\tSTATUS: %d/%d are OK - %d are skipped\n", OK_SERVICES, TOTAL_SERVICES, UNMONITORED_SERVICES)
+	log.Printf("INFO\tMEMORY %.2f%% - CPU %.2f%%\n", memory, cpu)
 
-	if len(*monitHostsMap) < MAX_AGENTS {
+	if len(*monitHostsMap) <= MAX_AGENTS {
 		host := MonitHost {
 			ID: monitInst.ID,
 			Poll: monitInst.Server.Poll,
@@ -241,16 +250,19 @@ func processReportStats(monitInst MonitInst, monitHostsMap *map[string]MonitHost
 
 		(*monitHostsMap)[monitInst.ID] = host
 
+		hostsServicesMap[monitInst.ID] = MonitHostServices{xxx}
+
 		if len(socketConnections) > 0 {
+			log.Println("INFO\tSockets broadcast")
 			socketMsg := SocketHostMessage{host}
 			for _, socket := range socketConnections {
 				socket.WriteMessage(1, []byte(fmt.Sprintf(socketMsg.StringValue())))
 			}
 		} else {
-			log.Println("Socket was nil, skip push host message to client")
+			// log.Println("INFO\tSocket was nil, skip push host message to client")
 		}
 	} else {
-		log.Printf("WARN - skip agent [%s] because quota over\n", monitInst.Server.Hostname)
+		log.Printf("WARN\tSkip agent [%s] because quota over\n", monitInst.Server.Hostname)
 	}
 
 	// table := tablewriter.NewWriter(os.Stdout)
@@ -264,7 +276,7 @@ func processReportStats(monitInst MonitInst, monitHostsMap *map[string]MonitHost
 }
 
 func processReportResult(monitInst MonitInst, monitHostsMap *map[string]MonitHost) {
-	log.Printf("\n\nMonit inst [%s] - Host server [%s]\n", monitInst.ID, monitInst.Server.Hostname)
+	log.Printf("INFO\tMonit inst [%s] - Host server [%s]\n", monitInst.ID, monitInst.Server.Hostname)
 
 	processReportStats(monitInst, monitHostsMap)
 
