@@ -49,11 +49,17 @@ func CORS(rw *http.ResponseWriter) {
 	(*rw).Header().Set("Access-Control-Allow-Origin", "*")
 }
 
+func PreflightCORS(rw *http.ResponseWriter) {
+	(*rw).Header().Set("Access-Control-Allow-Origin", "*")
+	(*rw).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+	(*rw).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+}
+
 func collectorPostHandler(rw http.ResponseWriter, r *http.Request) {
 	// log.Println("/collector POST: ", p)
 	b, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		panic(err)
+		log.Println("ERROR\tcollectorPostHandler() error when read request body:", err)
 	}
 
 	// log.Printf("Type: %T", b)
@@ -89,6 +95,8 @@ func hostsReportGetHandler(rw http.ResponseWriter, r *http.Request) {
 
 func hostReportGetHandler(rw http.ResponseWriter, r *http.Request) {
 	CORS(&rw)
+	rw.Header().Add("Content-Type", "application/json")
+
 	vars := mux.Vars(r)
 	hostID := vars["host_id"]
 	// fmt.Fprintln(rw, "host report here:", hostID)
@@ -103,6 +111,58 @@ func hostReportGetHandler(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(rw).Encode(array2)
+}
+
+func channelsGetHandler(rw http.ResponseWriter, r *http.Request) {
+	CORS(&rw)
+	rw.Header().Add("Content-Type", "application/json")
+
+	dataArray := ChannelGetAll()
+	json.NewEncoder(rw).Encode(dataArray)
+}
+
+type ChannelCreationAPIResult struct {
+	Status string `json:"status"`
+	RowID string `json:"id,omitempty"`
+}
+
+func channelsPostHandler(rw http.ResponseWriter, r *http.Request) {
+	PreflightCORS(&rw)
+	if (*r).Method == "OPTIONS" {
+		return
+	}
+
+	rw.Header().Add("Content-Type", "application/json")
+
+	b, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		log.Println("ERROR\tchannelsPostHandler() error when read request body:", err)
+	}
+
+	// log.Printf("INFO\tChannel post request body: %s", b)
+	ok, rowID := ChannelSave(b)
+	status := "error"
+	if ok {
+		status = "success"
+	}
+	json.NewEncoder(rw).Encode(ChannelCreationAPIResult{status, rowID})
+}
+
+func channelDeleteHandler(rw http.ResponseWriter, r *http.Request) {
+	PreflightCORS(&rw)
+	if (*r).Method == "OPTIONS" {
+		return
+	}
+
+	vars := mux.Vars(r)
+	chID := vars["channel_id"]
+
+	ok := ChannelRemove(chID)
+	status := "error"
+	if ok {
+		status = "success"
+	}
+	json.NewEncoder(rw).Encode(ChannelCreationAPIResult{status, ""})
 }
 
 var upgrader = websocket.Upgrader{
@@ -144,9 +204,15 @@ func StartApiServer(port string) {
 	r.HandleFunc("/api/collector", collectorPostHandler).Methods("POST")
 
 	// For web dashboard
+	r.HandleFunc("/socket", socketHandler)
+
 	r.HandleFunc("/api/hosts/report", hostsReportGetHandler).Methods("GET")
 	r.HandleFunc("/api/hosts/{host_id}/report", hostReportGetHandler).Methods("GET")
-	r.HandleFunc("/socket", socketHandler)
+
+	r.HandleFunc("/api/channels", channelsGetHandler).Methods("GET")
+	r.HandleFunc("/api/channels", channelsPostHandler).Methods("POST", "OPTIONS")
+	r.HandleFunc("/api/channels/{channel_id}", channelDeleteHandler).Methods("DELETE", "OPTIONS")
+
 
 	// log.SetOutput(&lumberjack.Logger{
 	// 	Filename:   "./logs/log.txt",
