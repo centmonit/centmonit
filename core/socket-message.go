@@ -1,6 +1,9 @@
 package core
 
-import "fmt"
+import (
+	"fmt"
+	"encoding/json"
+)
 
 type SocketEventMessage struct {
 	// Channel string = 'EVENT'
@@ -12,22 +15,15 @@ type SocketEventMessage struct {
 }
 
 func (sm SocketEventMessage) StringValue() string {
-	return fmt.Sprintf(
-		`{
-			"channel": "%s",
-			"type": "%s",
-			"host": "%s",
-			"message": "%s",
-			"service": "%s",
-			"serviceTypeDesc": "%s"
-		}`,
-		"EVENT",
-		sm.Type,
-		sm.Host,
-		sm.Message,
-		sm.Service,
-		sm.ServiceTypeDesc,
-	)
+	raw := make(map[string]interface{})
+	raw["channel"] = "EVENT"
+	raw["type"] = sm.Type
+	raw["host"] = sm.Host
+	raw["message"] = sm.Message
+	raw["service"] = sm.Service
+	raw["serviceTypeDesc"] = sm.ServiceTypeDesc
+	out, _ := json.Marshal(raw)
+	return string(out)
 }
 
 type SocketHostMessage struct {
