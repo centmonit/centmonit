@@ -1,6 +1,5 @@
 bin/
 logs/
-
 html_backup/
-
 releases/
+db/
