@@ -10,6 +10,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/gorilla/mux"
 	"encoding/json"
+	"strconv"
 )
 
 const MAX_AGENTS = 2
@@ -113,6 +114,28 @@ func hostReportGetHandler(rw http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(rw).Encode(array2)
 }
 
+func hostReportByNameGetHandler(rw http.ResponseWriter, r *http.Request) {
+	CORS(&rw)
+	rw.Header().Add("Content-Type", "application/json")
+
+	vars := mux.Vars(r)
+	hostName := vars["host_name"]
+
+	var result []string
+	for hostID, hostData := range hostsServicesMap {
+		if hostsMap[hostID].Hostname == hostName {
+			result = make([]string, len(hostData.Data))
+			var i = 0
+			for _, value := range hostData.Data {
+				result[i] = value.Name
+				i++
+			}
+			break
+		}
+	}
+	json.NewEncoder(rw).Encode(result)
+}
+
 func channelsGetHandler(rw http.ResponseWriter, r *http.Request) {
 	CORS(&rw)
 	rw.Header().Add("Content-Type", "application/json")
@@ -124,6 +147,11 @@ func channelsGetHandler(rw http.ResponseWriter, r *http.Request) {
 type ChannelCreationAPIResult struct {
 	Status string `json:"status"`
 	RowID string `json:"id,omitempty"`
+}
+
+type AlertRuleCreationAPIResult struct {
+	Status string `json:"status"`
+	RowID int `json:"id,omitempty"`
 }
 
 func channelsPostHandler(rw http.ResponseWriter, r *http.Request) {
@@ -154,6 +182,7 @@ func channelDeleteHandler(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	rw.Header().Add("Content-Type", "application/json")
 	vars := mux.Vars(r)
 	chID := vars["channel_id"]
 
@@ -163,6 +192,80 @@ func channelDeleteHandler(rw http.ResponseWriter, r *http.Request) {
 		status = "success"
 	}
 	json.NewEncoder(rw).Encode(ChannelCreationAPIResult{status, ""})
+}
+
+func alertRulesGetHandler(rw http.ResponseWriter, r *http.Request) {
+	CORS(&rw)
+	rw.Header().Add("Content-Type", "application/json")
+
+	dataArray := AlertRuleGetAll()
+	json.NewEncoder(rw).Encode(dataArray)
+}
+
+func alertRulesPostHandler(rw http.ResponseWriter, r *http.Request) {
+	PreflightCORS(&rw)
+	if (*r).Method == "OPTIONS" {
+		return
+	}
+
+	rw.Header().Add("Content-Type", "application/json")
+	b, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		log.Println("ERROR\tAlertRulesPostHandler() error when read request body:", err)
+	}
+
+	log.Printf("INFO\tAlertRulesPostHandler request body: %s", b)
+	ok, rowID := AlertRuleSave(b)
+	status := "error"
+	if ok {
+		status = "success"
+	}
+	json.NewEncoder(rw).Encode(AlertRuleCreationAPIResult{status, rowID})
+}
+
+func alertRuleDeleteHandler(rw http.ResponseWriter, r *http.Request) {
+	PreflightCORS(&rw)
+	if (*r).Method == "OPTIONS" {
+		return
+	}
+
+	rw.Header().Add("Content-Type", "application/json")
+	vars := mux.Vars(r)
+	idString := vars["rule_id"]
+
+	idInt, _ := strconv.Atoi(idString)
+	ok := AlertRuleRemove(idInt)
+	status := "error"
+	if ok {
+		status = "success"
+	}
+	json.NewEncoder(rw).Encode(AlertRuleCreationAPIResult{status, 0})
+}
+
+func alertRuleUpdateHandler(rw http.ResponseWriter, r *http.Request) {
+	PreflightCORS(&rw)
+	if (*r).Method == "OPTIONS" {
+		return
+	}
+
+	rw.Header().Add("Content-Type", "application/json")
+	vars := mux.Vars(r)
+	idString := vars["rule_id"]
+	idInt, _ := strconv.Atoi(idString)
+
+	b, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		log.Println("ERROR\talertRuleUpdateHandler() error when read request body:", err)
+	}
+
+	log.Printf("INFO\talertRuleUpdateHandler request body: %s", b)
+
+	ok := AlertRuleUpdate(idInt, b)
+	status := "error"
+	if ok {
+		status = "success"
+	}
+	json.NewEncoder(rw).Encode(AlertRuleCreationAPIResult{status, 0})
 }
 
 var upgrader = websocket.Upgrader{
@@ -208,10 +311,16 @@ func StartApiServer(port string) {
 
 	r.HandleFunc("/api/hosts/report", hostsReportGetHandler).Methods("GET")
 	r.HandleFunc("/api/hosts/{host_id}/report", hostReportGetHandler).Methods("GET")
+	r.HandleFunc("/api/hostnames/{host_name}/report", hostReportByNameGetHandler).Methods("GET")
 
 	r.HandleFunc("/api/channels", channelsGetHandler).Methods("GET")
 	r.HandleFunc("/api/channels", channelsPostHandler).Methods("POST", "OPTIONS")
 	r.HandleFunc("/api/channels/{channel_id}", channelDeleteHandler).Methods("DELETE", "OPTIONS")
+
+	r.HandleFunc("/api/alert-rules", alertRulesGetHandler).Methods("GET")
+	r.HandleFunc("/api/alert-rules", alertRulesPostHandler).Methods("POST", "OPTIONS")
+	r.HandleFunc("/api/alert-rules/{rule_id}", alertRuleDeleteHandler).Methods("DELETE", "OPTIONS")
+	r.HandleFunc("/api/alert-rules/{rule_id}", alertRuleUpdateHandler).Methods("PUT", "OPTIONS")
 
 
 	// log.SetOutput(&lumberjack.Logger{

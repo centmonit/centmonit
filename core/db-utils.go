@@ -54,10 +54,26 @@ func __init_tables__() {
 
 	statement, err := db.Prepare(channelSQL)
 	if err != nil {
-		log.Println("ERROR\tCreate CHANNEL table error:", err.Error())
+		log.Println("ERROR\tCreate Channel table error:", err.Error())
 	}
 	statement.Exec()
-	log.Println("INFO\tCreate CHANNEL table success")
+	log.Println("INFO\tCreate Channel table success")
+
+	// table 2
+	alertRuleSQL := `
+		create table if not exists AlertRule (
+			"id" INTEGER PRIMARY KEY AUTOINCREMENT,
+			"name" varchar(256) NOT NULL,
+			"filters" text,
+			"alertConf" text
+		);`
+
+	statement, err = db.Prepare(alertRuleSQL)
+	if err != nil {
+		log.Println("ERROR\tCreate AlertRule table error:", err.Error())
+	}
+	statement.Exec()
+	log.Println("INFO\tCreate AlertRule table success")
 }
 
 func __insert_slack_channel__(channelName string, webhookURL string) (bool, string) {
@@ -98,6 +114,35 @@ func __insert_smtp_channel__(
 	return true, row_id
 }
 
+func __insert_alert_rule__(name string, filters string, alertConf string) (bool, int) {
+	db, _ := sql.Open("sqlite3", dbFile)
+	defer db.Close()
+
+	sql := `INSERT INTO AlertRule(name, filters, alertConf) VALUES (?, ?, ?)`
+	statement, _ := db.Prepare(sql)
+
+	result, err := statement.Exec(name, filters, alertConf)
+	if err != nil {
+		return false, -1
+	}
+	lastID, _ := result.LastInsertId()
+	return true, int(lastID)
+}
+
+func __update_alert_rule__(id int, name string, filters string, alertConf string) bool {
+	db, _ := sql.Open("sqlite3", dbFile)
+	defer db.Close()
+
+	sql := `Update AlertRule set name = ?, filters = ?, alertConf = ? WHERE id = ?`
+	statement, _ := db.Prepare(sql)
+
+	_, err := statement.Exec(name, filters, alertConf, id)
+	if err != nil {
+		return false
+	}
+	return true
+}
+
 type ChannelObject struct {
 	ID string `json:"id"`
 	Name string `json:"name"`
@@ -110,6 +155,13 @@ type ChannelObject struct {
 	Passwd string `json:"passwd,omitempty"`
 }
 
+type AlertRuleObject struct {
+	ID uint `json:"id"`
+	Name string `json:"name"`
+	Filters string `json:"filters"`
+	AlertConf string `json:"alertConf"`
+}
+
 func ChannelGetAll() []ChannelObject {
 	db, _ := sql.Open("sqlite3", dbFile)
 	defer db.Close()
@@ -118,7 +170,7 @@ func ChannelGetAll() []ChannelObject {
 		SELECT
 			id, name, type, webhook_url, host, port, ssl, user, passwd
 		FROM channel
-		order by ID desc
+		order by ID asc
 	`)
 	defer rows.Close()
 
@@ -178,6 +230,61 @@ func ChannelRemove(id string) bool {
 	return true
 }
 
+func AlertRuleGetAll() []AlertRuleObject {
+	db, _ := sql.Open("sqlite3", dbFile)
+	defer db.Close()
+
+	rows, _ := db.Query(`
+		SELECT *
+		FROM AlertRule
+		order by ID desc
+	`)
+	defer rows.Close()
+
+	result := make([]AlertRuleObject, 0)
+
+	log.Println("INFO\tAlertRule get all row")
+	for rows.Next() {
+		obj := AlertRuleObject{}
+		err := rows.Scan(&obj.ID, &obj.Name, &obj.Filters, &obj.AlertConf)
+		if err != nil {
+			log.Println("ERROR\t - scan row error:", err)
+		} else {
+			log.Printf("INFO\t - row item:%+v\n", obj)
+		}
+
+		result = append(result, obj)
+	}
+	return result
+}
+
+func AlertRuleSave(payload []byte) (success bool, rowID int) {
+	obj := AlertRuleObject{}
+	json.Unmarshal(payload, &obj)
+	log.Printf("INFO\tAlertRuleSave() get payload object: %+v\n", obj)
+	return __insert_alert_rule__(obj.Name, obj.Filters, obj.AlertConf)
+}
+
+func AlertRuleUpdate(id int, payload []byte) bool {
+	obj := AlertRuleObject{}
+	json.Unmarshal(payload, &obj)
+	return __update_alert_rule__(id, obj.Name, obj.Filters, obj.AlertConf)
+}
+
+func AlertRuleRemove(id int) bool {
+	db, _ := sql.Open("sqlite3", dbFile)
+	defer db.Close()
+
+	sql := `delete from AlertRule where id = ?`
+	statement, _ := db.Prepare(sql)
+	_, err := statement.Exec(id)
+
+	if err != nil {
+		return false
+	}
+	return true
+}
+
 func PrepareDB() {
 	__init_db__()
 	__init_tables__()
@@ -185,8 +292,9 @@ func PrepareDB() {
 
 func DBTest() {
 	fmt.Println("Test DB")
-	// __init_db__()
-	// __init_tables__()
-	__insert_slack_channel__("default channel 1", "http://abc.com/def")
-	__insert_smtp_channel__("channel 2", "smtp.gmail.com", 587, false, "", "")
+	__init_db__()
+	__init_tables__()
+	// __insert_slack_channel__("default channel 1", "http://abc.com/def")
+	// __insert_smtp_channel__("channel 2", "smtp.gmail.com", 587, false, "", "")
+	__insert_alert_rule__("default rule", "abc", "def")
 }
