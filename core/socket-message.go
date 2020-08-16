@@ -59,13 +59,3 @@ func (sm SocketHostMessage) StringValue() string {
 		sm.Host.SkipServices,
 	)
 }
-
-// ID string `json:"id"`
-// 	Hostname string `json:"hostname"`
-// 	Uptime uint `json:"uptime"`
-// 	RAM float32 `json:"ram"`
-// 	CPU float32 `json:"cpu"`
-// 	Services uint `json:"services"`
-// 	GoodServices uint `json:"goodServices"`
-// 	FailServices uint `json:"failServices"`
-// 	SkipServices uint `json:"skipServices"`

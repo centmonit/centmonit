@@ -9,5 +9,5 @@ auth:
 
 log:
   maxFiles: 25
-  maxFileSize: 5 # in Mb
+  maxFileSizeInMB: 5
   retentionDays: 15

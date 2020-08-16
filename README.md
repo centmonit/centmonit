@@ -61,3 +61,11 @@ Extend props:
 - tutorialedge.net/golang/parsing-xml-with-golang
 - golangexample.com/a-powerful-url-router-and-dispatcher-for-golang
 - dev.to/koddr/let-s-write-config-for-your-golang-web-app-on-right-way-yaml-5ggp
+- github.com/MasslessParticle/GoQ
+- github.com/vmihailenco/taskq
+- medium.com/@alain.drolet.0/how-to-unmarshal-an-array-of-json-objects-of-different-types-into-a-go-struct-10eab5f9a3a2
+- golangcode.com/json-encode-an-array-of-objects/
+- github.com/tidwall/gjson
+- github.com/mattn/go-sqlite3/blob/master/_example/simple/simple.go
+- appdividend.com/2019/12/02/golang-http-example-get-post-http-requests-in-golang
+- ednsquare.com/story/date-and-time-manipulation-golang-with-examples------cU1FjK

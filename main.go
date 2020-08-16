@@ -6,6 +6,11 @@ import (
 	"os"
 	"local.domain/CentMonit/core"
 	"gopkg.in/natefinch/lumberjack.v2"
+	"net/smtp"
+	gomail "gopkg.in/mail.v2"
+	"text/template"
+	"bytes"
+	"fmt"
 )
 
 func __do_work__() {
@@ -33,7 +38,9 @@ func __do_work__() {
 
 	go core.StartWebServer(cfg.Net.WebPort)
 	go core.StartApiServer(cfg.Net.ApiPort)
+	go core.InitWorkers()
 
+	log.Printf("INFO\tCentMonit started")
 	for {}
 }
 
@@ -43,7 +50,79 @@ func __do_test_xml__() {
 	// core.TestParse(xml)
 }
 
+func __do_test_smtp1__() {
+	// Set up authentication information.
+	auth := smtp.PlainAuth("", "alert@pingcom.vn", "123456789!", "smtp.gmail.com")
+
+	// Connect to the server, authenticate, set the sender and recipient,
+	// and send the email all in one step.
+	to := []string{"tuanha@pingcom.vn","tuanha@conera.io",}
+	msg := []byte("From: alert@pingcom.vn\r\n" +"To: tuanha@pingcom.vn,tuanha@conera.io\r\n" +
+		"Subject: Go language email send using smpt package\r\n" +
+		"\r\n" +
+		"Hi Team,\nThis is sample email using Go language executable file.\nIn this we will be learning how to send email using go lang.\n\nRegards,\nEducateSpace support\r\n")
+
+	err := smtp.SendMail("smtp.gmail.com:587", auth, "alert@pingcom.vn", to, msg)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func __do_test_smtp2__() {
+	m := gomail.NewMessage()
+	m.SetHeader("From", "alert@pingcom.vn")
+	m.SetHeader("To", "tuanha@pingcom.vn", "cora@example.com")
+	// m.SetAddressHeader("Cc", "dan@example.com", "Dan")
+	m.SetHeader("Subject", "Hello!")
+	m.SetBody("text/html", "Hello <b>Bob</b> and <i>Cora</i>!")
+	// m.Attach("/home/Alex/lolcat.jpg")
+
+	d := gomail.NewDialer("smtp.gmail.com", 587, "alert@pingcom.vn", "123456789!")
+
+	// Send the email to Bob, Cora and Dan.
+	if err := d.DialAndSend(m); err != nil {
+			panic(err)
+	}
+}
+
+func __do_test_smtp3__() {
+	m := gomail.NewMessage()
+	m.SetHeader("From", "CentMonit <alert@pingcom.vn>")
+	m.SetHeader("To", "tuanha@pingcom.vn")
+	// m.SetHeader("Subject", "✅ Success email")
+	m.SetHeader("Subject", "❗️ Warning email") // ⚠️
+
+	t, _ := template.ParseFiles("./template/alert-email.html")
+	m.AddAlternativeWriter("text/html", func(w io.Writer) error {
+		return t.Execute(w, struct {
+			Name    string
+			Message string
+		} {"JoeHart", "I had played for ManC"})
+	})
+
+	m.Embed("./html/LogoMakr_4rwcqQ.png")
+
+	d := gomail.NewDialer("smtp.gmail.com", 587, "alert@pingcom.vn", "123456789!")
+
+	// Send the email to Bob, Cora and Dan.
+	if err := d.DialAndSend(m); err != nil {
+			panic(err)
+	}
+}
+
+func __do_test_slack__() {
+	t, _ := template.ParseFiles("./template/alert-slack.json")
+	var body bytes.Buffer
+	// t.Execute(os.Stdout, struct {} {})
+	t.Execute(&body, struct {
+		Status string
+	} {"Error"})
+	fmt.Println(string(body.Bytes()[:]))
+}
+
 func main() {
 	__do_work__()
 	// core.DBTest()
+	// __do_test_smtp3__()
+	// __do_test_slack__()
 }

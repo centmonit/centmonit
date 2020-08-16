@@ -16,7 +16,7 @@ type Config struct {
 
 	Log struct {
 		MaxFiles int `yaml:"maxFiles"`
-  	MaxFileSize int `yaml:"maxFileSize"`
+  	MaxFileSize int `yaml:"maxFileSizeInMB"`
   	RetentionDays int `yaml:"retentionDays"`
 	} `yaml:"log"`
 }

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/rs/xid"
 )
 
 const dbFile = "./db/core.db"
@@ -30,10 +29,6 @@ const (
 	DB_CHANNEL_TYPE_SMTP_EMAIL = 2
 )
 
-func __generate_row_id__() string {
-	return xid.New().String()
-}
-
 func __init_tables__() {
 	db, _ := sql.Open("sqlite3", dbFile)
 	defer db.Close()
@@ -49,7 +44,8 @@ func __init_tables__() {
 			"port" integer,
 			"ssl" integer,
 			"user" varchar(256),
-			"passwd" varchar(256)
+			"passwd" varchar(256),
+			"customtext" varchar(256)
 		);`
 
 	statement, err := db.Prepare(channelSQL)
@@ -76,16 +72,16 @@ func __init_tables__() {
 	log.Println("INFO\tCreate AlertRule table success")
 }
 
-func __insert_slack_channel__(channelName string, webhookURL string) (bool, string) {
+func __insert_slack_channel__(channelName string, webhookURL string, customText string) (bool, string) {
 	db, _ := sql.Open("sqlite3", dbFile)
 	defer db.Close()
 
-	sql := `INSERT INTO channel(id, name, type, webhook_url) VALUES (?, ?, ?, ?)`
+	sql := `INSERT INTO channel(id, name, type, webhook_url, customtext) VALUES (?, ?, ?, ?, ?)`
 	statement, _ := db.Prepare(sql)
 
 	channelType := DB_CHANNEL_TYPE_SLACK_WEBHOOK
-	row_id := __generate_row_id__()
-	_, err := statement.Exec(row_id, channelName, channelType, webhookURL)
+	row_id := RandomID()
+	_, err := statement.Exec(row_id, channelName, channelType, webhookURL, customText)
 	if err != nil {
 		return false, ""
 	}
@@ -98,16 +94,17 @@ func __insert_smtp_channel__(
 		port uint,
 		ssl bool,
 		user string,
-		passwd string) (bool, string) {
+		passwd string,
+		customText string) (bool, string) {
 	db, _ := sql.Open("sqlite3", dbFile)
 	defer db.Close()
 
-	sql := `INSERT INTO channel(id, name, type, host, port, ssl, user, passwd) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+	sql := `INSERT INTO channel(id, name, type, host, port, ssl, user, passwd, customtext) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	statement, _ := db.Prepare(sql)
 
 	channelType := DB_CHANNEL_TYPE_SMTP_EMAIL
-	row_id := __generate_row_id__()
-	_, err := statement.Exec(row_id, channelName, channelType, host, port, ssl, user, passwd)
+	row_id := RandomID()
+	_, err := statement.Exec(row_id, channelName, channelType, host, port, ssl, user, passwd, customText)
 	if err != nil {
 		return false, ""
 	}
@@ -153,6 +150,7 @@ type ChannelObject struct {
 	SSL bool `json:"ssl,omitempty"`
 	User string `json:"user,omitempty"`
 	Passwd string `json:"passwd,omitempty"`
+	CustomText string `json:"customText,omitempty"`
 }
 
 type AlertRuleObject struct {
@@ -168,7 +166,7 @@ func ChannelGetAll() []ChannelObject {
 
 	rows, _ := db.Query(`
 		SELECT
-			id, name, type, webhook_url, host, port, ssl, user, passwd
+			id, name, type, webhook_url, host, port, ssl, user, passwd, customtext
 		FROM channel
 		order by ID asc
 	`)
@@ -185,13 +183,13 @@ func ChannelGetAll() []ChannelObject {
 		var _ssl sql.NullBool
 		var _user sql.NullString
 		var _passwd sql.NullString
+		var _customtext sql.NullString
 
-		err := rows.Scan(&obj.ID, &obj.Name, &obj.Type, &_webhook, &_host, &_port, &_ssl, &_user, &_passwd)
+		err := rows.Scan(&obj.ID, &obj.Name, &obj.Type, &_webhook, &_host, &_port, &_ssl, &_user, &_passwd, &_customtext)
 		if err != nil {
 			log.Println("ERROR\t - scan row error:", err)
-		} else {
-			log.Printf("INFO\t - row item:%+v\n", obj)
 		}
+
 		// Extra checking null field
 		obj.WebhookURL = _webhook.String
 		obj.Host = _host.String
@@ -199,10 +197,55 @@ func ChannelGetAll() []ChannelObject {
 		obj.SSL = bool(_ssl.Bool)
 		obj.User = _user.String
 		obj.Passwd = _passwd.String
+		obj.CustomText = _customtext.String
 
+		log.Printf("INFO\t - row item:%+v\n", obj)
 		result = append(result, obj)
 	}
 	return result
+}
+
+func ChannelGet(id string) ChannelObject {
+	db, _ := sql.Open("sqlite3", dbFile)
+	defer db.Close()
+
+	statement, _ := db.Prepare(`
+		SELECT
+			id, name, type, webhook_url, host, port, ssl, user, passwd, customtext
+		FROM channel
+		WHERE id = ?
+	`)
+	defer statement.Close()
+
+	obj := ChannelObject{}
+	var _webhook sql.NullString
+	var _host sql.NullString
+	var _port sql.NullInt32
+	var _ssl sql.NullBool
+	var _user sql.NullString
+	var _passwd sql.NullString
+	var _customtext sql.NullString
+
+	err := statement.QueryRow(id).Scan(&obj.ID, &obj.Name, &obj.Type, &_webhook, &_host, &_port, &_ssl, &_user, &_passwd, &_customtext)
+	if err != nil {
+		log.Println("ERROR\tChannelGet row error:", err)
+	}
+
+	// Extra checking null field
+	obj.WebhookURL = _webhook.String
+	obj.Host = _host.String
+	obj.Port = uint(_port.Int32)
+	obj.SSL = bool(_ssl.Bool)
+	obj.User = _user.String
+	obj.Passwd = _passwd.String
+	if _customtext.Valid {
+		obj.CustomText = _customtext.String
+	} else {
+		obj.CustomText = "CentMonit" // set default
+	}
+
+	log.Printf("INFO\tChannelGet row result: %+v\n", obj)
+	return obj
 }
 
 func ChannelSave(payload []byte) (success bool, rowID string) {
@@ -210,9 +253,9 @@ func ChannelSave(payload []byte) (success bool, rowID string) {
 	json.Unmarshal(payload, &ch)
 	log.Printf("INFO\tChannelSave() get payload object: %+v\n", ch)
 	if ch.Type == DB_CHANNEL_TYPE_SLACK_WEBHOOK {
-		return __insert_slack_channel__(ch.Name, ch.WebhookURL)
+		return __insert_slack_channel__(ch.Name, ch.WebhookURL, ch.CustomText)
 	} else {
-		return __insert_smtp_channel__(ch.Name, ch.Host, ch.Port, ch.SSL, ch.User, ch.Passwd)
+		return __insert_smtp_channel__(ch.Name, ch.Host, ch.Port, ch.SSL, ch.User, ch.Passwd, ch.CustomText)
 	}
 }
 
@@ -292,9 +335,9 @@ func PrepareDB() {
 
 func DBTest() {
 	fmt.Println("Test DB")
-	__init_db__()
-	__init_tables__()
+	// __init_db__()
+	// __init_tables__()
 	// __insert_slack_channel__("default channel 1", "http://abc.com/def")
 	// __insert_smtp_channel__("channel 2", "smtp.gmail.com", 587, false, "", "")
-	__insert_alert_rule__("default rule", "abc", "def")
+	// __insert_alert_rule__("default rule", "abc", "def")
 }

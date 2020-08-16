@@ -189,6 +189,18 @@ func processReportEvent(monitInst MonitInst, monitHostsMap *map[string]MonitHost
 	} else {
 		log.Println("INFO\tSocket arrays was empty, skip push event message to clients")
 	}
+
+	//
+	// Enqueue event for Alert Worker
+	//
+	PublishEvent(EventMessage{
+		ID: RandomID(),
+		Host: monitInst.Server.Hostname,
+		ServiceName: monitInst.Event.Service,
+		ServiceType: descServiceType(monitInst.Event.Type),
+		EventMessage: monitInst.Event.Message,
+		Status: eventType,
+	})
 }
 
 func processReportStats(monitInst MonitInst, monitHostsMap *map[string]MonitHost) {

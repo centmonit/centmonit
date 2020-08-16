@@ -164,7 +164,7 @@ func channelsPostHandler(rw http.ResponseWriter, r *http.Request) {
 
 	b, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		log.Println("ERROR\tchannelsPostHandler() error when read request body:", err)
+		log.Println("ERROR\tChannelsPostHandler() error when read request body:", err)
 	}
 
 	// log.Printf("INFO\tChannel post request body: %s", b)
@@ -255,10 +255,10 @@ func alertRuleUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 
 	b, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		log.Println("ERROR\talertRuleUpdateHandler() error when read request body:", err)
+		log.Println("ERROR\tAlertRuleUpdateHandler() error when read request body:", err)
 	}
 
-	log.Printf("INFO\talertRuleUpdateHandler request body: %s", b)
+	log.Printf("INFO\tAlertRuleUpdateHandler request body: %s", b)
 
 	ok := AlertRuleUpdate(idInt, b)
 	status := "error"
@@ -266,6 +266,23 @@ func alertRuleUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 		status = "success"
 	}
 	json.NewEncoder(rw).Encode(AlertRuleCreationAPIResult{status, 0})
+}
+
+func eventsPostHandler(rw http.ResponseWriter, r *http.Request) {
+	PreflightCORS(&rw)
+	if (*r).Method == "OPTIONS" {
+		return
+	}
+
+	rw.Header().Add("Content-Type", "application/json")
+	b, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		log.Println("ERROR\tEventsPostHandler() error when read request body:", err)
+	}
+
+	log.Printf("INFO\tEventsPostHandler request body: %s", b)
+	// PublishEvent(string(b[:]))
+	return
 }
 
 var upgrader = websocket.Upgrader{
@@ -321,6 +338,8 @@ func StartApiServer(port string) {
 	r.HandleFunc("/api/alert-rules", alertRulesPostHandler).Methods("POST", "OPTIONS")
 	r.HandleFunc("/api/alert-rules/{rule_id}", alertRuleDeleteHandler).Methods("DELETE", "OPTIONS")
 	r.HandleFunc("/api/alert-rules/{rule_id}", alertRuleUpdateHandler).Methods("PUT", "OPTIONS")
+
+	r.HandleFunc("/api/events", eventsPostHandler).Methods("POST")
 
 
 	// log.SetOutput(&lumberjack.Logger{
